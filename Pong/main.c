@@ -2,6 +2,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 // Screen dimensions
 const int SCREEN_WIDTH = 640;
@@ -83,15 +84,26 @@ int main(int argc, char* args[])
 {	
 	int moveP1, moveP2;
 	int ballX, ballY;
+	int moveX, moveY;
+	int angle, speed;
 	const Uint8* keyState;
 	
 	// Init player and ball positions
 	moveP1 = moveP2 = (SCREEN_HEIGHT / 2) - PLAYER_HEIGHT;
+
 	ballX = SCREEN_WIDTH / 2;
-	ballY = SCREEN_WIDTH / 2;
+	ballY = SCREEN_WIDTH / 2;	
 
 	// Init random
 	srand((unsigned)time(NULL));
+
+	// Init angle and speed
+	//angle = rand() % 360 + 1;
+	angle = 90;
+	speed = 5;
+
+	moveX = speed * cos(angle);
+	moveY = speed * sin(angle);
 
 	if (initSDL())
 	{
@@ -146,8 +158,19 @@ int main(int argc, char* args[])
 
 			drawPlayers(moveP1, moveP2);
 
-			
+			if ((ballX + moveX) < (SCREEN_WIDTH - 10) && (ballY + moveY) < (SCREEN_HEIGHT - 10))
+			{
+				ballX += moveX;
+				ballY += moveY;
+			}
 
+			if ((ballX + moveX) > 0)
+			{
+				ballX += moveX;
+				ballY += moveY;
+			}
+
+			//printf("Ball: %d, %d\n", ballX, ballY);
 			drawBall(ballX, ballY);
 
 			SDL_RenderPresent(renderer);
