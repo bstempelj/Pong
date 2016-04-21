@@ -82,7 +82,7 @@ void drawBall(int x, int y)
 
 float dist(float x, float y)
 {
-	return sqrt(x*x + y*y);
+	return (float) sqrt(x*x + y*y);
 }
 
 float random01()
@@ -108,7 +108,7 @@ int main(int argc, char* args[])
 	// Init ball position and speed
 	ballX = SCREEN_WIDTH / 2;
 	ballY = SCREEN_HEIGHT / 2;
-	speed = 6;
+	speed = 4;
 
 	// Init random
 	srand((unsigned)time(NULL));
@@ -175,8 +175,18 @@ int main(int argc, char* args[])
 
 			drawPlayers(moveP1, moveP2);
 
-			ballX += moveX;
-			ballY += moveY;
+			// Bounce from edges
+			if ((ballY + 10 >= SCREEN_HEIGHT) || (ballY <= 0))
+				moveY *= -1;
+			else if ((ballX + 10 >= SCREEN_WIDTH) || (ballX <= 0))
+				moveX *= -1;
+
+			// Bounce from players
+			/*if (ballX <= (20 + PLAYER_WIDTH) || (ballX + 10 >= (SCREEN_WIDTH - PLAYER_WIDTH - 20)))
+				moveX *= -1;*/
+
+			ballX += (int) moveX;
+			ballY += (int) moveY;
 			printf("Ball: %d, %d\n", ballX, ballY);
 			drawBall(ballX, ballY);
 
