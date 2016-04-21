@@ -80,30 +80,47 @@ void drawBall(int x, int y)
 	SDL_RenderFillRect(renderer, &ball);
 }
 
+float dist(float x, float y)
+{
+	return sqrt(x*x + y*y);
+}
+
+float random01()
+{
+	return (float)rand() / (float)RAND_MAX;
+}
+
 int main(int argc, char* args[])
 {	
+	// Ball vars
+	int ballX, ballY, speed;
+	float moveX, moveY, mDist;
+
+	// Players vars
 	int moveP1, moveP2;
-	int ballX, ballY;
-	int moveX, moveY;
-	int angle, speed;
+
+	// Keyboard
 	const Uint8* keyState;
 	
-	// Init player and ball positions
+	// Init players positions
 	moveP1 = moveP2 = (SCREEN_HEIGHT / 2) - PLAYER_HEIGHT;
 
+	// Init ball position and speed
 	ballX = SCREEN_WIDTH / 2;
-	ballY = SCREEN_WIDTH / 2;	
+	ballY = SCREEN_HEIGHT / 2;
+	speed = 6;
 
 	// Init random
 	srand((unsigned)time(NULL));
+	
+	// Random new ball position
+	moveX = random01();
+	moveY = random01();
 
-	// Init angle and speed
-	//angle = rand() % 360 + 1;
-	angle = 90;
-	speed = 5;
-
-	moveX = speed * cos(angle);
-	moveY = speed * sin(angle);
+	// Normalized new ball position
+	mDist = dist(moveX, moveY);
+	moveX = (moveX / mDist) * speed;
+	moveY = (moveY / mDist) * speed;
 
 	if (initSDL())
 	{
@@ -124,7 +141,7 @@ int main(int argc, char* args[])
 				if ((moveP1 + PLAYER_HEIGHT) < SCREEN_HEIGHT - 10)
 				{
 					moveP1 += 10;
-					printf("Player1: %d\n", moveP1 + PLAYER_HEIGHT);
+					//printf("Player1: %d\n", moveP1 + PLAYER_HEIGHT);
 				}
 			}
 			if (keyState[SDL_SCANCODE_S])
@@ -132,7 +149,7 @@ int main(int argc, char* args[])
 				if (moveP1 > 10)
 				{
 					moveP1 -= 10;
-					printf("Player1: %d\n", moveP1);
+					//printf("Player1: %d\n", moveP1);
 				}
 			}
 			if (keyState[SDL_SCANCODE_J])
@@ -140,7 +157,7 @@ int main(int argc, char* args[])
 				if ((moveP2 + PLAYER_HEIGHT) < SCREEN_HEIGHT - 10)
 				{
 					moveP2 += 10;
-					printf("Player2: %d\n", moveP2 + PLAYER_HEIGHT);
+					//printf("Player2: %d\n", moveP2 + PLAYER_HEIGHT);
 				}
 			}
 			if (keyState[SDL_SCANCODE_K])
@@ -148,31 +165,22 @@ int main(int argc, char* args[])
 				if (moveP2 > 10)
 				{
 					moveP2 -= 10;
-					printf("Player2: %d\n", moveP2);
+					//printf("Player2: %d\n", moveP2);
 				}
 			}
 
-
+			// Clear screen
 			SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
 			SDL_RenderClear(renderer);
 
 			drawPlayers(moveP1, moveP2);
 
-			if ((ballX + moveX) < (SCREEN_WIDTH - 10) && (ballY + moveY) < (SCREEN_HEIGHT - 10))
-			{
-				ballX += moveX;
-				ballY += moveY;
-			}
-
-			if ((ballX + moveX) > 0)
-			{
-				ballX += moveX;
-				ballY += moveY;
-			}
-
-			//printf("Ball: %d, %d\n", ballX, ballY);
+			ballX += moveX;
+			ballY += moveY;
+			printf("Ball: %d, %d\n", ballX, ballY);
 			drawBall(ballX, ballY);
 
+			// Update screen
 			SDL_RenderPresent(renderer);
 		}
 
