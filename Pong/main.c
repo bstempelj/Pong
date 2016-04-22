@@ -108,7 +108,7 @@ int main(int argc, char* args[])
 	// Init ball position and speed
 	ballX = SCREEN_WIDTH / 2;
 	ballY = SCREEN_HEIGHT / 2;
-	speed = 4;
+	speed = 6;
 
 	// Init random
 	srand((unsigned)time(NULL));
@@ -138,7 +138,7 @@ int main(int argc, char* args[])
 			keyState = SDL_GetKeyboardState(NULL);
 			if (keyState[SDL_SCANCODE_A])
 			{
-				if ((moveP1 + PLAYER_HEIGHT) < SCREEN_HEIGHT - 10)
+				if ((moveP1 + PLAYER_HEIGHT) < SCREEN_HEIGHT)
 				{
 					moveP1 += 10;
 					//printf("Player1: %d\n", moveP1 + PLAYER_HEIGHT);
@@ -154,7 +154,7 @@ int main(int argc, char* args[])
 			}
 			if (keyState[SDL_SCANCODE_J])
 			{
-				if ((moveP2 + PLAYER_HEIGHT) < SCREEN_HEIGHT - 10)
+				if ((moveP2 + PLAYER_HEIGHT) < SCREEN_HEIGHT)
 				{
 					moveP2 += 10;
 					//printf("Player2: %d\n", moveP2 + PLAYER_HEIGHT);
@@ -171,23 +171,42 @@ int main(int argc, char* args[])
 
 			// Clear screen
 			SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
-			SDL_RenderClear(renderer);
+			SDL_RenderClear(renderer);			
 
-			drawPlayers(moveP1, moveP2);
-
-			// Bounce from edges
-			if ((ballY + 10 >= SCREEN_HEIGHT) || (ballY <= 0))
-				moveY *= -1;
-			else if ((ballX + 10 >= SCREEN_WIDTH) || (ballX <= 0))
+			// Bounce of player1
+			if ((ballX <= (20 + PLAYER_WIDTH)) && ((ballY >= moveP1) && (ballY <= moveP1 + PLAYER_HEIGHT)))
+				moveX *= -1;
+			// Bounce of player2
+			else if ((ballX + 10 >= (SCREEN_WIDTH - PLAYER_WIDTH - 20)) && ((ballY >= moveP2) && (ballY <= moveP2 + PLAYER_HEIGHT)))
 				moveX *= -1;
 
-			// Bounce from players
-			/*if (ballX <= (20 + PLAYER_WIDTH) || (ballX + 10 >= (SCREEN_WIDTH - PLAYER_WIDTH - 20)))
-				moveX *= -1;*/
+			// Bounce from top and bottom edges
+			if ((ballY + 10 >= SCREEN_HEIGHT) || (ballY <= 0))
+				moveY *= -1;
 
-			ballX += (int) moveX;
-			ballY += (int) moveY;
-			printf("Ball: %d, %d\n", ballX, ballY);
+			// Reset ball
+			if ((ballX > SCREEN_WIDTH) || (ballX < 0))
+			{
+				// Init ball position and speed
+				ballX = SCREEN_WIDTH / 2;
+				ballY = SCREEN_HEIGHT / 2;
+
+				// Random new ball position
+				moveX = random01();
+				moveY = random01();
+
+				// Normalized new ball position
+				mDist = dist(moveX, moveY);
+				moveX = (moveX / mDist) * speed;
+				moveY = (moveY / mDist) * speed;
+			}
+
+
+			ballX += (int)moveX;
+			ballY += (int)moveY;
+
+			// Draw objects
+			drawPlayers(moveP1, moveP2);
 			drawBall(ballX, ballY);
 
 			// Update screen
