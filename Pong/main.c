@@ -1,4 +1,7 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <SDL.h>
+#include <SDL_ttf.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,11 +14,49 @@ const int SCREEN_HEIGHT = 480;
 // Player dimensions
 const int PLAYER_WIDTH = 20;
 const int PLAYER_HEIGHT = 80;
+const int PLAYER_SPEED = 10;
+
+// Vector
+struct Vector {
+	float x;
+	float y;
+};
+
+// Texture
+struct BTexture {
+	SDL_Texture *texture;
+	int w;
+	int h;
+};
+
+// Ball
+struct Ball {
+	int x;
+	int y;
+	int w;
+	int h;
+	int speed;
+};
+
+// Player
+struct Player {
+	int x;
+	int y;
+	int speed;
+	int score;
+};
+
+typedef struct BTexture BTexture;
+typedef struct Player Player;
 
 SDL_Window* window = NULL;
 SDL_Surface* screenSurface = NULL;
 SDL_Renderer* renderer = NULL;
 SDL_Event e;
+
+TTF_Font* font = NULL;
+BTexture scorePlayer1;
+BTexture scorePlayer2;
 
 bool quit = false;
 
@@ -43,7 +84,15 @@ bool initSDL()
 			{
 				printf("Renderer could not be create! Error: %s\n", SDL_GetError());
 				return false;
-			}			
+			}
+			else
+			{
+				if (TTF_Init() == -1)
+				{
+					printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
+					return false;
+				}
+			}
 		}
 	}
 	
@@ -53,77 +102,129 @@ bool initSDL()
 void closeSDL()
 {
 	// Free resources
+	SDL_FreeSurface(screenSurface);
+	screenSurface = NULL;
+
+	SDL_DestroyTexture(scorePlayer1.texture);
+	SDL_DestroyTexture(scorePlayer2.texture);
+
+	TTF_CloseFont(font);
+	font = NULL;
+
 	SDL_DestroyRenderer(renderer);
 	renderer = NULL;
 
 	SDL_DestroyWindow(window);
 	window = NULL;
 
+	TTF_Quit();
 	SDL_Quit();
 }
 
 void drawPlayers(int y1, int y2)
 {
-	SDL_Rect player1 = { 20, y1, 20, 80 };
-	SDL_Rect player2 = { SCREEN_WIDTH - PLAYER_WIDTH - 20, y2, 20, 80 };
+	SDL_Rect player1 = { 20, y1, PLAYER_WIDTH, PLAYER_HEIGHT };
+	SDL_Rect player2 = { SCREEN_WIDTH - PLAYER_WIDTH - 20, y2, PLAYER_WIDTH, PLAYER_HEIGHT };
 
 	SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
 	SDL_RenderFillRect(renderer, &player1);
 	SDL_RenderFillRect(renderer, &player2);
 }
 
-void drawBall(int x, int y)
+void drawBall(struct Ball ball)
 {
-	SDL_Rect ball = { x, y, 10, 10 };
+	SDL_Rect rect = { ball.x, ball.y, ball.w, ball.h };
 
 	SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-	SDL_RenderFillRect(renderer, &ball);
+	SDL_RenderFillRect(renderer, &rect);
 }
 
-float dist(float x, float y)
+void resetBall(struct Ball *ball, char *msg)
 {
-	return (float) sqrt(x*x + y*y);
+	printf("%s", msg);
+	ball->x = SCREEN_WIDTH / 2 - ball->w / 2;
+	ball->y = SCREEN_HEIGHT / 2 - ball->h / 2;
 }
 
-float random01()
+void loadFont()
 {
-	return (float)rand() / (float)RAND_MAX;
+	font = TTF_OpenFont("arial.ttf", 72);
+	if (font == NULL)
+		printf("Failed to load font! Error: %s\n", TTF_GetError());
+}
+
+BTexture loadTextTexture(char *text, SDL_Color color)
+{
+	// Convert *text to string before calling this function
+	SDL_Surface *textSurface = TTF_RenderText_Solid(font, text, color);
+	BTexture textTexture;
+
+	if (textSurface == NULL)
+		printf("Unable to render text surface! Error: %s\n", TTF_GetError());
+	else
+	{
+		textTexture.texture = SDL_CreateTextureFromSurface(renderer, textSurface);
+		if (textTexture.texture == NULL)
+			printf("Unable to create texture from renderer text! Error: %s\n", SDL_GetError());
+		else
+		{
+			textTexture.w = textSurface->w;
+			textTexture.h = textSurface->h;
+		}
+
+		SDL_FreeSurface(textSurface);
+	}
+
+	return textTexture;
+}
+
+void renderTextTexture(BTexture textTexture, int x, int y)
+{
+	SDL_Rect rect = { x, y, textTexture.w, textTexture.h };
+	SDL_RenderCopy(renderer, textTexture.texture, NULL, &rect);
 }
 
 int main(int argc, char* args[])
-{	
-	// Ball vars
-	int ballX, ballY, speed;
-	float moveX, moveY, mDist;
+{
+	Player player1;
+	Player player2;
+
+	struct Ball ball;
+	struct Vector vel;
 
 	// Players vars
 	int moveP1, moveP2;
+	player1.score = player2.score = 0;
 
 	// Keyboard
 	const Uint8* keyState;
+
+	char buffer[65];
+	int r = 10;
+
+	// Color
+
+	SDL_Color textColor = { 255, 255, 255, 255 };
 	
 	// Init players positions
-	moveP1 = moveP2 = (SCREEN_HEIGHT / 2) - PLAYER_HEIGHT;
+	moveP1 = moveP2 = SCREEN_HEIGHT / 2 - PLAYER_HEIGHT / 2;
 
-	// Init ball position and speed
-	ballX = SCREEN_WIDTH / 2;
-	ballY = SCREEN_HEIGHT / 2;
-	speed = 6;
+	// Init ball
+	ball.w = ball.h = 10;
+	ball.x = SCREEN_WIDTH / 2 - ball.w / 2;
+	ball.y = SCREEN_HEIGHT / 2 - ball.w / 2;	
+	ball.speed = 4;
 
-	// Init random
-	srand((unsigned)time(NULL));
-	
-	// Random new ball position
-	moveX = random01();
-	moveY = random01();
+	// Init ball velocity
+	vel.x = 1;
+	vel.y = 1;
 
-	// Normalized new ball position
-	mDist = dist(moveX, moveY);
-	moveX = (moveX / mDist) * speed;
-	moveY = (moveY / mDist) * speed;
-
-	if (initSDL())
+	if (initSDL());
 	{
+		loadFont();
+
+		scorePlayer1 = loadTextTexture(_itoa(player1.score, buffer, r), textColor);
+		scorePlayer2 = loadTextTexture(_itoa(player2.score, buffer, r), textColor);
 		// Main loop
 		while (!quit)
 		{
@@ -140,7 +241,7 @@ int main(int argc, char* args[])
 			{
 				if ((moveP1 + PLAYER_HEIGHT) < SCREEN_HEIGHT)
 				{
-					moveP1 += 10;
+					moveP1 += PLAYER_SPEED;
 					//printf("Player1: %d\n", moveP1 + PLAYER_HEIGHT);
 				}
 			}
@@ -148,7 +249,7 @@ int main(int argc, char* args[])
 			{
 				if (moveP1 > 10)
 				{
-					moveP1 -= 10;
+					moveP1 -= PLAYER_SPEED;
 					//printf("Player1: %d\n", moveP1);
 				}
 			}
@@ -156,7 +257,7 @@ int main(int argc, char* args[])
 			{
 				if ((moveP2 + PLAYER_HEIGHT) < SCREEN_HEIGHT)
 				{
-					moveP2 += 10;
+					moveP2 += PLAYER_SPEED;
 					//printf("Player2: %d\n", moveP2 + PLAYER_HEIGHT);
 				}
 			}
@@ -164,50 +265,59 @@ int main(int argc, char* args[])
 			{
 				if (moveP2 > 10)
 				{
-					moveP2 -= 10;
+					moveP2 -= PLAYER_SPEED;
 					//printf("Player2: %d\n", moveP2);
 				}
 			}
 
-			// Clear screen
-			SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
-			SDL_RenderClear(renderer);			
-
 			// Bounce of player1
-			if ((ballX <= (20 + PLAYER_WIDTH)) && ((ballY >= moveP1) && (ballY <= moveP1 + PLAYER_HEIGHT)))
-				moveX *= -1;
-			// Bounce of player2
-			else if ((ballX + 10 >= (SCREEN_WIDTH - PLAYER_WIDTH - 20)) && ((ballY >= moveP2) && (ballY <= moveP2 + PLAYER_HEIGHT)))
-				moveX *= -1;
-
-			// Bounce from top and bottom edges
-			if ((ballY + 10 >= SCREEN_HEIGHT) || (ballY <= 0))
-				moveY *= -1;
-
-			// Reset ball
-			if ((ballX > SCREEN_WIDTH) || (ballX < 0))
+			if ( (ball.x <= (20 + PLAYER_WIDTH)) && ((ball.y >= moveP1) && (ball.y <= moveP1 + PLAYER_HEIGHT)) )
 			{
-				// Init ball position and speed
-				ballX = SCREEN_WIDTH / 2;
-				ballY = SCREEN_HEIGHT / 2;
-
-				// Random new ball position
-				moveX = random01();
-				moveY = random01();
-
-				// Normalized new ball position
-				mDist = dist(moveX, moveY);
-				moveX = (moveX / mDist) * speed;
-				moveY = (moveY / mDist) * speed;
+				vel.x *= -1;
 			}
 
+			// Bounce of player2
+			else if ( (ball.x + 10 >= (SCREEN_WIDTH - PLAYER_WIDTH - 20)) && ((ball.y >= moveP2) && (ball.y <= moveP2 + PLAYER_HEIGHT)) )
+			{
+				vel.x *= -1;
+			}
 
-			ballX += (int)moveX;
-			ballY += (int)moveY;
+			// Bounce from top and bottom edges
+			if ( (ball.y + 10 >= SCREEN_HEIGHT) || (ball.y <= 0) )
+			{
+				vel.y *= -1;
+			}
+
+			// Player 1 won
+			if (ball.x + ball.w >= SCREEN_WIDTH)
+			{
+				player1.score += 1;
+				scorePlayer1 = loadTextTexture(_itoa(player1.score, buffer, r), textColor);
+				resetBall(&ball, "Player 1 won!\n");
+			}
+
+			// Player 2 won
+			if (ball.x + ball.w <= 0)
+			{
+				player2.score += 1;
+				scorePlayer2 = loadTextTexture(_itoa(player2.score, buffer, r), textColor);
+				resetBall(&ball, "Player 2 won!\n");
+			}
+
+			ball.x += (int)vel.x * ball.speed;
+			ball.y += (int)vel.y * ball.speed;
+
+			// Clear screen
+			SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
+			SDL_RenderClear(renderer);
 
 			// Draw objects
 			drawPlayers(moveP1, moveP2);
-			drawBall(ballX, ballY);
+			drawBall(ball);
+
+			// Draw text
+			renderTextTexture(scorePlayer1, SCREEN_WIDTH / 4 - scorePlayer1.w / 2, 20);
+			renderTextTexture(scorePlayer2, SCREEN_WIDTH * 3 / 4 - scorePlayer2.w / 2, 20);
 
 			// Update screen
 			SDL_RenderPresent(renderer);
